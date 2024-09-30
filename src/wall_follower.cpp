@@ -193,7 +193,7 @@ void WallFollower::update_callback()
 
     // 如果接近起始点，停止
     if (near_start) {
-        RCLCPP_INFO(this->get_logger(), "Robot is near the start point. Stopping.");
+        RCLCPP_INFO(this->get_logger(), "near start point. Stopping.");
         update_cmd_vel(0.0, 0.0);
         return;
     }
@@ -209,7 +209,7 @@ void WallFollower::update_callback()
         // 前方有障碍物，调整角速度以避开
         RCLCPP_INFO(this->get_logger(), "Too close to wall in front, turning right.");
         linear_speed = 0.1;  // 减速
-        angular_speed = -1.0;  // 向右转
+        angular_speed = -max_linear_speed*0.5;  // 向右转
     }
     else if (front_distance > follow_distance) {
         // 前方没有障碍物，可以直行
@@ -223,12 +223,12 @@ void WallFollower::update_callback()
     if (left_distance > follow_distance) {
         // 左侧距离较远，向左靠近墙壁
         RCLCPP_INFO(this->get_logger(), "Adjusting position closer to the left wall.");
-        angular_speed = 0.5;  // 左转
+        angular_speed = max_linear_speed*0.3;  // 左转
     }
     else if (left_distance < follow_distance) {
         // 左侧距离较近，向右远离墙壁
         RCLCPP_INFO(this->get_logger(), "Too close to the left wall, turning right.");
-        angular_speed = -0.5;  // 右转
+        angular_speed = -max_linear_speed*0.3;  // 右转
     }
 
     /*******************************************
@@ -237,12 +237,12 @@ void WallFollower::update_callback()
     if (right_distance > follow_distance) {
         // 右侧距离较远，向右靠近墙壁
         RCLCPP_INFO(this->get_logger(), "Adjusting position closer to the right wall.");
-        angular_speed = -0.5;  // 右转
+        angular_speed = -max_linear_speed*0.3;  // 右转
     }
     else if (right_distance < follow_distance) {
         // 右侧距离较近，向左远离墙壁
         RCLCPP_INFO(this->get_logger(), "Too close to the right wall, turning left.");
-        angular_speed = 0.5;  // 左转
+        angular_speed = max_linear_speed*0.3;  // 左转
     }
 
     /*******************************************
