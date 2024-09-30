@@ -170,9 +170,9 @@ void WallFollower::update_callback()
     "FRONT_RIGHT"
 };
 	// 
-    constexpr double safe_distance = 0.5;    // 安全停止距离
+    constexpr double safe_distance = 0.1;    // 安全停止距离
     constexpr double follow_distance = 0.3;  // 跟随墙壁的理想距离
-    constexpr double max_linear_speed = 0.3; // 最大线速度
+    constexpr double max_linear_speed = 0.05; // 最大线速度
 	// actually +-1.82
     constexpr double max_angular_speed = 1.5; // 最大角速度
 
@@ -208,8 +208,8 @@ void WallFollower::update_callback()
     if (front_distance < follow_distance) {
         // 前方有障碍物，调整角速度以避开
         RCLCPP_INFO(this->get_logger(), "Too close to wall in front, turning right.");
-        linear_speed = 0.1;  // 减速
-        angular_speed = -max_linear_speed*0.5;  // 向右转
+        linear_speed = max_linear_speed*0.5;  // 减速
+        angular_speed = -max_linear_speed*0.7;  // 向右转
     }
     else if (front_distance > follow_distance) {
         // 前方没有障碍物，可以直行
