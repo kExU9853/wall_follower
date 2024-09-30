@@ -155,13 +155,120 @@ bool pl_near;
 
 void WallFollower::update_callback()
 {
-	if (near_start) update_cmd_vel(0.0, 0.0);
-	else if (scan_data_[LEFT_FRONT] > 0.9) update_cmd_vel(0.2, 1.5);
-	else if (scan_data_[FRONT] < 0.7) update_cmd_vel(0.0, -1.5);
-	else if (scan_data_[FRONT_LEFT] < 0.6) update_cmd_vel(0.3, -1.5);
-	else if (scan_data_[FRONT_RIGHT] < 0.6) update_cmd_vel(0.3, 1.5);
-	else if (scan_data_[LEFT_FRONT] > 0.6) update_cmd_vel(0.3, 1.5);
-	else update_cmd_vel(0.3, 0.0);
+	const char* direction_names[12] = {
+    "FRONT",
+    "FRONT_LEFT",
+    "LEFT_FRONT",
+    "LEFT",
+    "LEFT_BACK",
+    "BACK_LEFT",
+    "BACK",
+    "BACK_RIGHT",
+    "RIGHT_BACK",
+    "RIGHT",
+    "RIGHT_FRONT",
+    "FRONT_RIGHT"
+};
+	// 
+    constexpr double safe_distance = 0.5;    // 安全停止距离
+    constexpr double follow_distance = 0.3;  // 跟随墙壁的理想距离
+    constexpr double max_linear_speed = 0.3; // 最大线速度
+	// actually +-1.82
+    constexpr double max_angular_speed = 1.5; // 最大角速度
+
+    // 检查前、后、左、右的障碍物情况
+    double front_distance = scan_data_[FRONT];
+    double left_distance = scan_data_[LEFT];
+    double right_distance = scan_data_[RIGHT];
+    double back_distance = scan_data_[BACK];
+
+    // 优先处理紧急情况：如果前方或者任何方向过近，则停止
+    for (int i = 0; i < 12; ++i) {
+        if (scan_data_[i] < safe_distance) {
+            RCLCPP_WARN(this->get_logger(), "Obstacle too close in direction %s! Stopping.", direction_names[i]);
+            update_cmd_vel(0.0, 0.0);  // 紧急停止
+            return;
+        }
+    }
+
+    // 如果接近起始点，停止
+    if (near_start) {
+        RCLCPP_INFO(this->get_logger(), "Robot is near the start point. Stopping.");
+        update_cmd_vel(0.0, 0.0);
+        return;
+    }
+
+    // 动态调整线速度和角速度
+    double linear_speed = max_linear_speed;
+    double angular_speed = 0.0;
+
+    /*******************************************
+     * 前方处理逻辑
+     *******************************************/
+    if (front_distance < follow_distance) {
+        // 前方有障碍物，调整角速度以避开
+        RCLCPP_INFO(this->get_logger(), "Too close to wall in front, turning right.");
+        linear_speed = 0.1;  // 减速
+        angular_speed = -1.0;  // 向右转
+    }
+    else if (front_distance > follow_distance) {
+        // 前方没有障碍物，可以直行
+        RCLCPP_INFO(this->get_logger(), "Front is clear, moving forward.");
+        angular_speed = 0.0;  // 保持直行
+    }
+
+    /*******************************************
+     * 左侧处理逻辑
+     *******************************************/
+    if (left_distance > follow_distance) {
+        // 左侧距离较远，向左靠近墙壁
+        RCLCPP_INFO(this->get_logger(), "Adjusting position closer to the left wall.");
+        angular_speed = 0.5;  // 左转
+    }
+    else if (left_distance < follow_distance) {
+        // 左侧距离较近，向右远离墙壁
+        RCLCPP_INFO(this->get_logger(), "Too close to the left wall, turning right.");
+        angular_speed = -0.5;  // 右转
+    }
+
+    /*******************************************
+     * 右侧处理逻辑
+     *******************************************/
+    if (right_distance > follow_distance) {
+        // 右侧距离较远，向右靠近墙壁
+        RCLCPP_INFO(this->get_logger(), "Adjusting position closer to the right wall.");
+        angular_speed = -0.5;  // 右转
+    }
+    else if (right_distance < follow_distance) {
+        // 右侧距离较近，向左远离墙壁
+        RCLCPP_INFO(this->get_logger(), "Too close to the right wall, turning left.");
+        angular_speed = 0.5;  // 左转
+    }
+
+    /*******************************************
+     * 后方处理逻辑
+     *******************************************/
+    if (back_distance < follow_distance) {
+		// 后方有障碍物，不能后退
+		RCLCPP_WARN(this->get_logger(), "Obstacle too close behind! Adjusting position to avoid being stuck.");
+		
+		// 停止任何后退行为
+		linear_speed = 0.0;  // 停止线速度，避免后退
+		
+		// 检查左右侧的空间，决定转向方向
+		if (left_distance > right_distance) {
+			// 左侧空间较大，尝试向左转
+			RCLCPP_INFO(this->get_logger(), "Turning left to avoid obstacle behind.");
+			angular_speed = max_angular_speed * 0.5;  // 左转，避免撞上后方障碍物
+		} else {
+			// 右侧空间较大，尝试向右转
+			RCLCPP_INFO(this->get_logger(), "Turning right to avoid obstacle behind.");
+			angular_speed = -max_angular_speed * 0.5;  // 右转，避免撞上后方障碍物
+		}
+	}
+
+    // 综合多方向处理结果，动态调整速度和方向
+    update_cmd_vel(linear_speed, angular_speed);
 }
 
 
