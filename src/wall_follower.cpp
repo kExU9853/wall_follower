@@ -220,8 +220,8 @@ void WallFollower::update_callback()
 	if (front_distance < follow_distance) {
 		// There is an obstacle ahead, turn right to avoid it
 		RCLCPP_INFO(this->get_logger(), "Obstacle ahead, turning right.");
-		angular_speed = -max_angular_speed * 0.5; // Turn right
-		linear_speed = max_linear_speed * 0.5;    // Slow down
+		angular_speed = -max_angular_speed; // Turn right
+		linear_speed = max_linear_speed * 0.2;    // Slow down
 	} else {
 		// No obstacle ahead, continue moving forward
 		RCLCPP_INFO(this->get_logger(), "Path ahead is clear, moving forward.");
