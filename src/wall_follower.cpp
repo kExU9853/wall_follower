@@ -146,6 +146,21 @@ void WallFollower::update_cmd_vel(double linear, double angular)
 	cmd_vel_pub_->publish(cmd_vel);
 }
 
+int compareDoubles(double a, double b, double threshold) {
+    if (a < threshold and b < threshold) {
+        return 0;
+    }
+
+    else if ((a >= threshold && b < threshold) || (a < threshold && b >= threshold)) {
+        return 1;
+    }
+    else if (a >= threshold && b >= threshold) {
+        return 2;
+    }
+
+    return -1; 
+}
+
 /********************************************************************************
 ** Update functions
 ********************************************************************************/
@@ -207,7 +222,7 @@ void WallFollower::update_callback()
 	if (compareDoubles(left_distance, scan_data_[LEFT_FRONT], follow_distance) > 1) {
 		// The left wall is too far, turn left to get closer
 		RCLCPP_INFO(this->get_logger(), "Apply Left-hand rule: turning left to follow the left wall.");
-		angular_speed = max_angular_speed * ; // Turn left
+		angular_speed = max_angular_speed * 0.2; // Turn left
 		linear_speed = max_linear_speed *0.4;
 	} else if (compareDoubles(left_distance, scan_data_[LEFT_FRONT], follow_distance) < 1) {
 		// The left wall is too close, turn right to move away
@@ -266,21 +281,6 @@ void WallFollower::update_callback()
     //  Update velocities based on the computed linear and angular speeds
     update_cmd_vel(linear_speed, angular_speed);
 	RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
-}
-
-int compareDoubles(double a, double b, double threshold) {
-    if (a < threshold and b < threshold) {
-        return 0;
-    }
-
-    else if ((a >= threshold && b < threshold) || (a < threshold && b >= threshold)) {
-        return 1;
-    }
-    else if (a >= threshold && b >= threshold) {
-        return 2;
-    }
-
-    return -1; 
 }
 
 /*******************************************************************************
