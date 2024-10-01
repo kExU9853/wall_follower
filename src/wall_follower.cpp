@@ -147,6 +147,25 @@ void WallFollower::update_cmd_vel(double linear, double angular)
 }
 
 /********************************************************************************
+** return number of the paramaters larger than threshold
+********************************************************************************/
+int compareDoubles(double a, double b, double threshold) {
+
+    if (a < threshold and b < threshold) {
+        return 0;
+    }
+
+    else if ((a >= threshold && b < threshold) || (a < threshold && b >= threshold)) {
+        return 1;
+    }
+    else if (a >= threshold && b >= threshold) {
+        return 2;
+    }
+
+    return -1; 
+}
+
+/********************************************************************************
 ** Update functions
 ********************************************************************************/
 
@@ -155,16 +174,164 @@ bool pl_near;
 
 void WallFollower::update_callback()
 {
-	if (near_start) update_cmd_vel(0.0, 0.0);
-	else if (scan_data_[LEFT_FRONT] > 0.9) update_cmd_vel(0.2, 1.5);
-	else if (scan_data_[FRONT] < 0.7) update_cmd_vel(0.0, -1.5);
-	else if (scan_data_[FRONT_LEFT] < 0.6) update_cmd_vel(0.3, -1.5);
-	else if (scan_data_[FRONT_RIGHT] < 0.6) update_cmd_vel(0.3, 1.5);
-	else if (scan_data_[LEFT_FRONT] > 0.6) update_cmd_vel(0.3, 1.5);
-	else update_cmd_vel(0.3, 0.0);
+	const char* direction_names[12] = {
+    "FRONT",
+    "FRONT_LEFT",
+    "LEFT_FRONT",
+    "LEFT",
+    "LEFT_BACK",
+    "BACK_LEFT",
+    "BACK",
+    "BACK_RIGHT",
+    "RIGHT_BACK",
+    "RIGHT",
+    "RIGHT_FRONT",
+    "FRONT_RIGHT"
+};
+	// 
+    constexpr double safe_distance = 0.1;    // safe stop distance
+    constexpr double follow_distance = 0.3;  // ideal wall-following distance
+	constexpr double warning_distance = 0.6;  // warnning distance
+	constexpr double undetected_distance = 1.2;  // warnning distance
+    constexpr double max_linear_speed = 0.1; // max linear speed
+	// actually +-1.82
+    constexpr double max_angular_speed = 1.5; // max angular speed: absolute value
+
+    // sensor data: four main direction
+    double front_distance = scan_data_[FRONT];
+    double left_distance = scan_data_[LEFT];
+    double right_distance = scan_data_[RIGHT];
+    double back_distance = scan_data_[BACK];
+
+    // Urgent Stop
+    for (int i = 0; i < 12; ++i) {
+        if (scan_data_[i] < safe_distance) {
+            RCLCPP_WARN(this->get_logger(), "Obstacle too close in direction %s! Stopping.", direction_names[i]);
+            update_cmd_vel(0.0, 0.0); 
+            return;
+        }
+    }
+
+    // Stop Due to close to the start point
+    if (near_start) {
+        RCLCPP_INFO(this->get_logger(), "near start point. Stopping.");
+        update_cmd_vel(0.0, 0.0);
+        return;
+    }
+
+    double linear_speed = max_linear_speed*0.5;;
+    double angular_speed = 0.0;
+
+	//remember: 10ms for once update_cmd_vel, 1s 100 times for calling the speed changed
+
+   /*******************************************
+	 * Left-hand rule: prioritize left wall
+	 *******************************************/
+	if (compareDoubles(left_distance, scan_data_[LEFT_FRONT], follow_distance) > 1) {
+		
+		// The left wall is too far, turn left to get closer
+		RCLCPP_INFO(this->get_logger(), "Apply Left-hand rule: turning left to follow the left wall.");
+		angular_speed = max_angular_speed * 0.8; // Turn left
+		linear_speed = max_linear_speed *0.3;
+		
+		//  Update velocities based on the computed linear and angular speeds
+		update_cmd_vel(linear_speed, angular_speed);
+		RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
+	} else if ((left_distance < follow_distance or scan_data_[LEFT_BACK] < follow_distance) or scan_data_[LEFT_FRONT] < follow_distance ) {
+		
+		// The left wall is too close, turn right to move away
+		RCLCPP_INFO(this->get_logger(), "Apply Left-hand rule: too close in the left, turning right");
+		angular_speed = -max_angular_speed * 0.2; // slightly Turn right
+		linear_speed = max_linear_speed *0.2;
+		
+		//  Update velocities based on the computed linear and angular speeds
+		update_cmd_vel(linear_speed, angular_speed);
+		RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
+	}else if (scan_data_[LEFT_FRONT] > undetected_distance) {
+		// The left wall disappear turn left to find
+		RCLCPP_INFO(this->get_logger(), "Apply Left-hand rule: front left wall disappear turn left to find");
+		angular_speed = max_angular_speed * 0.2; // slightly Turn left
+		linear_speed = max_linear_speed *0.2;
+
+		//  Update velocities based on the computed linear and angular speeds
+		update_cmd_vel(linear_speed, angular_speed);
+		RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
+	}
+
+    /*******************************************
+	 * Handling front obstacles
+	 *******************************************/
+	if ((front_distance < warning_distance and scan_data_[FRONT_LEFT] < warning_distance) and scan_data_[LEFT_FRONT] < warning_distance) {
+		
+		// There would be an obstacle ahead, turn right to avoid it
+		RCLCPP_INFO(this->get_logger(), "Warning: the front and left is smaller than the warning distance, Obstacle ahead, turning right.");
+		angular_speed = -max_angular_speed; // Turn right
+		linear_speed = max_linear_speed * 0.4;    // Slow down
+
+		//  Update velocities based on the computed linear and angular speeds
+		update_cmd_vel(linear_speed, angular_speed);
+		RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
+
+	} else {
+		
+		// No obstacle ahead, continue moving forward
+		RCLCPP_INFO(this->get_logger(), "Path ahead is clear, moving forward.");
+		angular_speed = 0.0; // Move straight
+		linear_speed = max_linear_speed * 0.2;
+		
+		//  Update velocities based on the computed linear and angular speeds
+		update_cmd_vel(linear_speed, angular_speed);
+		RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
+	}
+
+	/*******************************************
+	 * Handling right side for safety
+	 *******************************************/
+	if (right_distance < follow_distance) {
+		
+		// Right side too close to an obstacle, turn left to avoid it
+		RCLCPP_WARN(this->get_logger(), "Obstacle too close on the right! Single detection Turning left.");
+		angular_speed = max_angular_speed * 0.5; // Turn left
+		
+		//  Update velocities based on the computed linear and angular speeds
+		update_cmd_vel(linear_speed, angular_speed);
+		RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
+	}
+    /*******************************************
+     * 后方处理逻辑
+     *******************************************/
+    if (back_distance < follow_distance) {
+		
+		// 后方有障碍物，不能后退
+		RCLCPP_WARN(this->get_logger(), "Obstacle too close behind! Adjusting position to avoid being stuck.");
+		
+		// 停止任何后退行为
+		if(linear_speed < 0){
+			linear_speed = 0.0;  // 停止线速度，避免后退
+		}
+		
+		// 检查左右侧的空间，决定转向方向
+		if (left_distance > right_distance) {
+			
+			// 左侧空间较大，尝试向左转
+			RCLCPP_INFO(this->get_logger(), "Turning left to avoid obstacle behind.");
+			angular_speed = max_angular_speed * 0.5;  // 左转，避免撞上后方障碍物
+			
+			//  Update velocities based on the computed linear and angular speeds
+			update_cmd_vel(linear_speed, angular_speed);
+			RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
+		} else {
+			
+			// 右侧空间较大，尝试向右转
+			RCLCPP_INFO(this->get_logger(), "Turning right to avoid obstacle behind.");
+			angular_speed = -max_angular_speed * 0.5;  // 右转，避免撞上后方障碍物
+
+			//  Update velocities based on the computed linear and angular speeds
+			update_cmd_vel(linear_speed, angular_speed);
+			RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
+		}
+	}
 }
-
-
 
 /*******************************************************************************
 ** Main
