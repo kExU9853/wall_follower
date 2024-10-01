@@ -170,19 +170,19 @@ void WallFollower::update_callback()
     "FRONT_RIGHT"
 };
 	// 
-    constexpr double safe_distance = 0.1;    // 安全停止距离
-    constexpr double follow_distance = 0.3;  // 跟随墙壁的理想距离
-    constexpr double max_linear_speed = 0.05; // 最大线速度
+    constexpr double safe_distance = 0.1;    // saft stop distance
+    constexpr double follow_distance = 0.3;  // ideak wall-following distance
+    constexpr double max_linear_speed = 0.08; // max linear speed
 	// actually +-1.82
-    constexpr double max_angular_speed = 1.5; // 最大角速度
+    constexpr double max_angular_speed = 1.5; // max angular speed: absolute value
 
-    // 检查前、后、左、右的障碍物情况
+    // sensor data: four main direction
     double front_distance = scan_data_[FRONT];
     double left_distance = scan_data_[LEFT];
     double right_distance = scan_data_[RIGHT];
     double back_distance = scan_data_[BACK];
 
-    // 优先处理紧急情况：如果前方或者任何方向过近，则停止
+    // Urgent Stop
     for (int i = 0; i < 12; ++i) {
         if (scan_data_[i] < safe_distance) {
             RCLCPP_WARN(this->get_logger(), "Obstacle too close in direction %s! Stopping.", direction_names[i]);
@@ -191,60 +191,51 @@ void WallFollower::update_callback()
         }
     }
 
-    // 如果接近起始点，停止
+    // Stop Due to close to the start point
     if (near_start) {
         RCLCPP_INFO(this->get_logger(), "near start point. Stopping.");
         update_cmd_vel(0.0, 0.0);
         return;
     }
 
-    // 动态调整线速度和角速度
     double linear_speed = max_linear_speed;
     double angular_speed = 0.0;
 
-    /*******************************************
-     * 前方处理逻辑
-     *******************************************/
-    if (front_distance < follow_distance) {
-        // 前方有障碍物，调整角速度以避开
-        RCLCPP_INFO(this->get_logger(), "Too close to wall in front, turning right.");
-        linear_speed = max_linear_speed*0.5;  // 减速
-        angular_speed = -max_linear_speed*0.3;  // 向右转
-    }
-    else if (front_distance > follow_distance) {
-        // 前方没有障碍物，可以直行
-        RCLCPP_INFO(this->get_logger(), "Front is clear, moving forward.");
-        angular_speed = 0.0;  // 保持直行
-    }
+   /*******************************************
+	 * Left-hand rule: prioritize left wall
+	 *******************************************/
+	if (left_distance > follow_distance) {
+		// The left wall is too far, turn left to get closer
+		RCLCPP_INFO(this->get_logger(), "Left-hand rule: turning left to follow the left wall.");
+		angular_speed = max_angular_speed * 0.3; // Turn left
+	} else if (left_distance < follow_distance && left_distance > safe_distance) {
+		// The left wall is too close, turn right to move away
+		RCLCPP_INFO(this->get_logger(), "Left-hand rule: turning right to adjust distance from the left wall.");
+		angular_speed = -max_angular_speed * 0.3; // Turn right
+	}
 
     /*******************************************
-     * 左侧处理逻辑
-     *******************************************/
-    if (left_distance > follow_distance) {
-        // 左侧距离较远，向左靠近墙壁
-        RCLCPP_INFO(this->get_logger(), "Adjusting position closer to the left wall.");
-        angular_speed = max_linear_speed*0.3;  // 左转
-    }
-    else if (left_distance < follow_distance && left_distance > safe_distance) {
-        // 左侧距离较近，向右远离墙壁
-        RCLCPP_INFO(this->get_logger(), "Too close to the left wall, turning right.");
-        angular_speed = -max_linear_speed*0.3;  // 右转
-    }
+	 * Handling front obstacles
+	 *******************************************/
+	if (front_distance < follow_distance) {
+		// There is an obstacle ahead, turn right to avoid it
+		RCLCPP_INFO(this->get_logger(), "Obstacle ahead, turning right.");
+		angular_speed = -max_angular_speed * 0.5; // Turn right
+		linear_speed = max_linear_speed * 0.5;    // Slow down
+	} else {
+		// No obstacle ahead, continue moving forward
+		RCLCPP_INFO(this->get_logger(), "Path ahead is clear, moving forward.");
+		angular_speed = 0.0; // Move straight
+	}
 
-    /*******************************************
-     * 右侧处理逻辑
-     *******************************************/
-    if (right_distance > follow_distance) {
-        // 右侧距离较远，向右靠近墙壁
-        RCLCPP_INFO(this->get_logger(), "Adjusting position closer to the right wall.");
-        angular_speed = -max_linear_speed*0.3;  // 右转
-    }
-    else if (right_distance < follow_distance && right_distance > safe_distance) {
-        // 右侧距离较近，向左远离墙壁
-        RCLCPP_INFO(this->get_logger(), "Too close to the right wall, turning left.");
-        angular_speed = max_linear_speed*0.3;  // 左转
-    }
-
+	/*******************************************
+	 * Handling right side for safety
+	 *******************************************/
+	if (right_distance < safe_distance) {
+		// Right side too close to an obstacle, turn left to avoid it
+		RCLCPP_WARN(this->get_logger(), "Obstacle too close on the right! Turning left.");
+		angular_speed = max_angular_speed * 0.5; // Turn left
+	}
     /*******************************************
      * 后方处理逻辑
      *******************************************/
@@ -267,8 +258,9 @@ void WallFollower::update_callback()
 		}
 	}
 
-    // 综合多方向处理结果，动态调整速度和方向
+    //  Update velocities based on the computed linear and angular speeds
     update_cmd_vel(linear_speed, angular_speed);
+	RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
 }
 
 
