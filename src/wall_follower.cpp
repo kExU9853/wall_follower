@@ -220,44 +220,70 @@ void WallFollower::update_callback()
 	 * Left-hand rule: prioritize left wall
 	 *******************************************/
 	if (compareDoubles(left_distance, scan_data_[LEFT_FRONT], follow_distance) > 1) {
+		
 		// The left wall is too far, turn left to get closer
 		RCLCPP_INFO(this->get_logger(), "Apply Left-hand rule: turning left to follow the left wall.");
 		angular_speed = max_angular_speed * 0.2; // Turn left
 		linear_speed = max_linear_speed *0.4;
+		
+		//  Update velocities based on the computed linear and angular speeds
+		update_cmd_vel(linear_speed, angular_speed);
+		RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
 	} else if (compareDoubles(left_distance, scan_data_[LEFT_FRONT], follow_distance) < 1) {
+		
 		// The left wall is too close, turn right to move away
 		RCLCPP_INFO(this->get_logger(), "Apply Left-hand rule: too close, turning right");
 		angular_speed = -max_angular_speed * 0.3; // slightly Turn right
 		linear_speed = max_linear_speed *0.2;
+		
+		//  Update velocities based on the computed linear and angular speeds
+		update_cmd_vel(linear_speed, angular_speed);
+		RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
 	}
 
     /*******************************************
 	 * Handling front obstacles
 	 *******************************************/
 	if (front_distance < follow_distance) {
+		
 		// There is an obstacle ahead, turn right to avoid it
 		RCLCPP_INFO(this->get_logger(), "Obstacle ahead, turning right.");
 		angular_speed = -max_angular_speed; // Turn right
 		linear_speed = max_linear_speed * 0.4;    // Slow down
+		
+		//  Update velocities based on the computed linear and angular speeds
+		update_cmd_vel(linear_speed, angular_speed);
+		RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
 	} else {
+		
 		// No obstacle ahead, continue moving forward
 		RCLCPP_INFO(this->get_logger(), "Path ahead is clear, moving forward.");
 		angular_speed = 0.0; // Move straight
 		linear_speed = max_linear_speed * 0.2;
+		
+		//  Update velocities based on the computed linear and angular speeds
+		update_cmd_vel(linear_speed, angular_speed);
+		RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
 	}
 
 	/*******************************************
 	 * Handling right side for safety
 	 *******************************************/
 	if (right_distance < safe_distance) {
+		
 		// Right side too close to an obstacle, turn left to avoid it
 		RCLCPP_WARN(this->get_logger(), "Obstacle too close on the right! Single detection Turning left.");
 		angular_speed = max_angular_speed * 0.5; // Turn left
+		
+		//  Update velocities based on the computed linear and angular speeds
+		update_cmd_vel(linear_speed, angular_speed);
+		RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
 	}
     /*******************************************
      * 后方处理逻辑
      *******************************************/
     if (back_distance < follow_distance) {
+		
 		// 后方有障碍物，不能后退
 		RCLCPP_WARN(this->get_logger(), "Obstacle too close behind! Adjusting position to avoid being stuck.");
 		
@@ -268,19 +294,25 @@ void WallFollower::update_callback()
 		
 		// 检查左右侧的空间，决定转向方向
 		if (left_distance > right_distance) {
+			
 			// 左侧空间较大，尝试向左转
 			RCLCPP_INFO(this->get_logger(), "Turning left to avoid obstacle behind.");
 			angular_speed = max_angular_speed * 0.5;  // 左转，避免撞上后方障碍物
+			
+			//  Update velocities based on the computed linear and angular speeds
+			update_cmd_vel(linear_speed, angular_speed);
+			RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
 		} else {
+			
 			// 右侧空间较大，尝试向右转
 			RCLCPP_INFO(this->get_logger(), "Turning right to avoid obstacle behind.");
 			angular_speed = -max_angular_speed * 0.5;  // 右转，避免撞上后方障碍物
+
+			//  Update velocities based on the computed linear and angular speeds
+			update_cmd_vel(linear_speed, angular_speed);
+			RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
 		}
 	}
-
-    //  Update velocities based on the computed linear and angular speeds
-    update_cmd_vel(linear_speed, angular_speed);
-	RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
 }
 
 /*******************************************************************************
