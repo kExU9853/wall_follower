@@ -146,7 +146,11 @@ void WallFollower::update_cmd_vel(double linear, double angular)
 	cmd_vel_pub_->publish(cmd_vel);
 }
 
+/********************************************************************************
+** return number of the paramaters larger than threshold
+********************************************************************************/
 int compareDoubles(double a, double b, double threshold) {
+
     if (a < threshold and b < threshold) {
         return 0;
     }
@@ -186,8 +190,9 @@ void WallFollower::update_callback()
 };
 	// 
     constexpr double safe_distance = 0.1;    // saft stop distance
-    constexpr double follow_distance = 0.3;  // ideak wall-following distance
-    constexpr double max_linear_speed = 0.08; // max linear speed
+    constexpr double follow_distance = 0.3;  // ideal wall-following distance
+	constexpr double warning_distance = 0.6;  // warnning distance
+    constexpr double max_linear_speed = 0.1; // max linear speed
 	// actually +-1.82
     constexpr double max_angular_speed = 1.5; // max angular speed: absolute value
 
@@ -201,7 +206,7 @@ void WallFollower::update_callback()
     for (int i = 0; i < 12; ++i) {
         if (scan_data_[i] < safe_distance) {
             RCLCPP_WARN(this->get_logger(), "Obstacle too close in direction %s! Stopping.", direction_names[i]);
-            update_cmd_vel(0.0, 0.0);  // 紧急停止
+            update_cmd_vel(0.0, 0.0); 
             return;
         }
     }
@@ -215,6 +220,8 @@ void WallFollower::update_callback()
 
     double linear_speed = max_linear_speed*0.5;;
     double angular_speed = 0.0;
+
+	//remember: 10ms for once update_cmd_vel, 1s 100 times for calling the speed changed
 
    /*******************************************
 	 * Left-hand rule: prioritize left wall
@@ -244,7 +251,7 @@ void WallFollower::update_callback()
     /*******************************************
 	 * Handling front obstacles
 	 *******************************************/
-	if (front_distance < follow_distance) {
+	if (front_distance < warning_distance) {
 		
 		// There is an obstacle ahead, turn right to avoid it
 		RCLCPP_INFO(this->get_logger(), "Obstacle ahead, turning right.");
