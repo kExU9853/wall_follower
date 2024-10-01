@@ -198,7 +198,7 @@ void WallFollower::update_callback()
         return;
     }
 
-    double linear_speed = max_linear_speed;
+    double linear_speed = max_linear_speed*0.5;;
     double angular_speed = 0.0;
 
    /*******************************************
@@ -206,12 +206,14 @@ void WallFollower::update_callback()
 	 *******************************************/
 	if (left_distance > follow_distance) {
 		// The left wall is too far, turn left to get closer
-		RCLCPP_INFO(this->get_logger(), "Left-hand rule: turning left to follow the left wall.");
+		RCLCPP_INFO(this->get_logger(), "Apply Left-hand rule: turning left to follow the left wall.");
 		angular_speed = max_angular_speed * 0.3; // Turn left
+		linear_speed = max_linear_speed *0.4;
 	} else if (left_distance < follow_distance && left_distance > safe_distance) {
 		// The left wall is too close, turn right to move away
 		RCLCPP_INFO(this->get_logger(), "Left-hand rule: turning right to adjust distance from the left wall.");
-		angular_speed = -max_angular_speed * 0.3; // Turn right
+		angular_speed = -max_angular_speed * 0.3; // slightly Turn right
+		linear_speed = max_linear_speed *0.2;
 	}
 
     /*******************************************
@@ -221,11 +223,12 @@ void WallFollower::update_callback()
 		// There is an obstacle ahead, turn right to avoid it
 		RCLCPP_INFO(this->get_logger(), "Obstacle ahead, turning right.");
 		angular_speed = -max_angular_speed; // Turn right
-		linear_speed = max_linear_speed * 0.2;    // Slow down
+		linear_speed = max_linear_speed * 0.4;    // Slow down
 	} else {
 		// No obstacle ahead, continue moving forward
 		RCLCPP_INFO(this->get_logger(), "Path ahead is clear, moving forward.");
 		angular_speed = 0.0; // Move straight
+		linear_speed = max_linear_speed * 0.2;
 	}
 
 	/*******************************************
@@ -233,7 +236,7 @@ void WallFollower::update_callback()
 	 *******************************************/
 	if (right_distance < safe_distance) {
 		// Right side too close to an obstacle, turn left to avoid it
-		RCLCPP_WARN(this->get_logger(), "Obstacle too close on the right! Turning left.");
+		RCLCPP_WARN(this->get_logger(), "Obstacle too close on the right! Single detection Turning left.");
 		angular_speed = max_angular_speed * 0.5; // Turn left
 	}
     /*******************************************
@@ -244,7 +247,9 @@ void WallFollower::update_callback()
 		RCLCPP_WARN(this->get_logger(), "Obstacle too close behind! Adjusting position to avoid being stuck.");
 		
 		// 停止任何后退行为
-		linear_speed = 0.0;  // 停止线速度，避免后退
+		if(linear_speed < 0){
+			linear_speed = 0.0;  // 停止线速度，避免后退
+		}
 		
 		// 检查左右侧的空间，决定转向方向
 		if (left_distance > right_distance) {
