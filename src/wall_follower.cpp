@@ -209,7 +209,7 @@ void WallFollower::update_callback()
         // 前方有障碍物，调整角速度以避开
         RCLCPP_INFO(this->get_logger(), "Too close to wall in front, turning right.");
         linear_speed = max_linear_speed*0.5;  // 减速
-        angular_speed = -max_linear_speed*0.7;  // 向右转
+        angular_speed = -max_linear_speed*0.3;  // 向右转
     }
     else if (front_distance > follow_distance) {
         // 前方没有障碍物，可以直行
@@ -225,7 +225,7 @@ void WallFollower::update_callback()
         RCLCPP_INFO(this->get_logger(), "Adjusting position closer to the left wall.");
         angular_speed = max_linear_speed*0.3;  // 左转
     }
-    else if (left_distance < follow_distance) {
+    else if (left_distance < follow_distance && left_distance > safe_distance) {
         // 左侧距离较近，向右远离墙壁
         RCLCPP_INFO(this->get_logger(), "Too close to the left wall, turning right.");
         angular_speed = -max_linear_speed*0.3;  // 右转
@@ -239,7 +239,7 @@ void WallFollower::update_callback()
         RCLCPP_INFO(this->get_logger(), "Adjusting position closer to the right wall.");
         angular_speed = -max_linear_speed*0.3;  // 右转
     }
-    else if (right_distance < follow_distance) {
+    else if (right_distance < follow_distance && right_distance > safe_distance) {
         // 右侧距离较近，向左远离墙壁
         RCLCPP_INFO(this->get_logger(), "Too close to the right wall, turning left.");
         angular_speed = max_linear_speed*0.3;  // 左转
