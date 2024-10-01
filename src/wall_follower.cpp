@@ -204,14 +204,14 @@ void WallFollower::update_callback()
    /*******************************************
 	 * Left-hand rule: prioritize left wall
 	 *******************************************/
-	if (left_distance > follow_distance) {
+	if (compareDoubles(left_distance, scan_data_[LEFT_FRONT], follow_distance) > 1) {
 		// The left wall is too far, turn left to get closer
 		RCLCPP_INFO(this->get_logger(), "Apply Left-hand rule: turning left to follow the left wall.");
-		angular_speed = max_angular_speed * 0.3; // Turn left
+		angular_speed = max_angular_speed * ; // Turn left
 		linear_speed = max_linear_speed *0.4;
-	} else if (left_distance < follow_distance && left_distance > safe_distance) {
+	} else if (compareDoubles(left_distance, scan_data_[LEFT_FRONT], follow_distance) < 1) {
 		// The left wall is too close, turn right to move away
-		RCLCPP_INFO(this->get_logger(), "Left-hand rule: turning right to adjust distance from the left wall.");
+		RCLCPP_INFO(this->get_logger(), "Apply Left-hand rule: too close, turning right");
 		angular_speed = -max_angular_speed * 0.3; // slightly Turn right
 		linear_speed = max_linear_speed *0.2;
 	}
@@ -268,7 +268,20 @@ void WallFollower::update_callback()
 	RCLCPP_INFO(this->get_logger(), "Updated linear speed: %f, angular speed: %f", linear_speed, angular_speed);
 }
 
+int compareDoubles(double a, double b, double threshold) {
+    if (a < threshold and b < threshold) {
+        return 0;
+    }
 
+    else if ((a >= threshold && b < threshold) || (a < threshold && b >= threshold)) {
+        return 1;
+    }
+    else if (a >= threshold && b >= threshold) {
+        return 2;
+    }
+
+    return -1; 
+}
 
 /*******************************************************************************
 ** Main
