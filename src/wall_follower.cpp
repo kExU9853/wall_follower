@@ -261,7 +261,7 @@ void WallFollower::update_callback()
     /*******************************************
 	 * Handling front obstacles
 	 *******************************************/
-	if ((front_distance < warning_distance and scan_data_[FRONT_LEFT] < warning_distance) and scan_data_[LEFT_FRONT] < warning_distance) {
+	if ((front_distance < warning_distance or scan_data_[FRONT_LEFT] < warning_distance) or scan_data_[LEFT_FRONT] < warning_distance) {
 		
 		// There would be an obstacle ahead, turn right to avoid it
 		RCLCPP_INFO(this->get_logger(), "Warning: the front and left is smaller than the warning distance, Obstacle ahead, turning right.");
