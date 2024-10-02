@@ -265,7 +265,11 @@ void WallFollower::update_callback()
 		
 		// There would be an obstacle ahead, turn right to avoid it
 		RCLCPP_INFO(this->get_logger(), "Warning: the front and left is smaller than the warning distance, Obstacle ahead, turning right.");
-		angular_speed = -max_angular_speed; // Turn right
+		double factor  = 0.2;
+		if ((front_distance < follow_distance or scan_data_[FRONT_LEFT] < follow_distance) or scan_data_[LEFT_FRONT] < follow_distance) {
+			factor = 0.7;
+		}
+		angular_speed = -max_angular_speed*factor; //  Turn right
 		linear_speed = max_linear_speed * 0.4;    // Slow down
 
 		//  Update velocities based on the computed linear and angular speeds
