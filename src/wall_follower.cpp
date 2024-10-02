@@ -189,9 +189,9 @@ void WallFollower::update_callback()
     "FRONT_RIGHT"
 };
 	// 
-    constexpr double safe_distance = 0.2;    // safe stop distance
-    constexpr double follow_distance = 0.5;  // ideal wall-following distance
-	constexpr double warning_distance = 0.8;  // warnning distance
+    constexpr double safe_distance = 0.1;    // safe stop distance
+    constexpr double follow_distance = 0.3;  // ideal wall-following distance
+	constexpr double warning_distance = 0.6;  // warnning distance
 	constexpr double undetected_distance = 1.2;  // warnning distance
     constexpr double max_linear_speed = 0.1; // max linear speed
 	// actually +-1.82
